@@ -1,12 +1,33 @@
+import { useState } from "react";
 import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Editplan, Item } from "../schema";
 import { cellRect, stagingRect, type Rect } from "./layout";
+
+const NamePlaceholder: React.FC<{ name: string }> = ({ name }) => (
+  <div
+    style={{
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "#bbb",
+      fontFamily: "Arial, sans-serif",
+      fontSize: 14,
+      textAlign: "center",
+      padding: 6,
+    }}
+  >
+    {name}
+  </div>
+);
 
 const MOVE_FRAMES = 20; // duration of the staging -> cell animation
 
 const ItemCard: React.FC<{ plan: Editplan; item: Item }> = ({ plan, item }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const [imgError, setImgError] = useState(false);
 
   if (frame < item.introFrame) return null;
   const dest = cellRect(plan, item.tier, item.slotIndex);
@@ -61,25 +82,14 @@ const ItemCard: React.FC<{ plan: Editplan; item: Item }> = ({ plan, item }) => {
           backgroundColor: "#222",
         }}
       >
-        {item.image ? (
-          <Img src={staticFile(item.image)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        {item.image && !imgError ? (
+          <Img
+            src={staticFile(item.image)}
+            onError={() => setImgError(true)}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
         ) : (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#bbb",
-              fontFamily: "Arial, sans-serif",
-              fontSize: 14,
-              textAlign: "center",
-              padding: 6,
-            }}
-          >
-            {item.name}
-          </div>
+          <NamePlaceholder name={item.name} />
         )}
       </div>
       {showLabel && (
