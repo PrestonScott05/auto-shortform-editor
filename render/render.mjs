@@ -2,8 +2,14 @@
 //   npm run render -- <videoId>
 // Reads props from public/<id>/editplan.json, encodes to ../out/<id>.mp4 with GPU accel.
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
+
+// Remotion copies public/ (large source videos) into a temp bundle. Keep that on this
+// project's drive instead of the system temp, which may be small/full.
+const tmp = resolve("..", ".remotion-tmp");
+mkdirSync(tmp, { recursive: true });
+process.env.TMPDIR = process.env.TEMP = process.env.TMP = tmp;
 
 // Ensure src/manifest.ts exists so the bundle compiles.
 spawnSync("node", ["gen-manifest.mjs"], { stdio: "inherit", shell: true });

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "manifest": "node gen-manifest.mjs",
-    "studio": "node gen-manifest.mjs && remotion studio",
+    "studio": "node studio.mjs",
     "render": "node render.mjs",
     "still": "node still.mjs"
   },

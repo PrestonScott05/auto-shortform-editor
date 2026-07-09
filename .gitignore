@@ -11,3 +11,6 @@ __pycache__/
 *.pyc
 Videos/
 Vids-*/
+
+# Remotion temp bundle (large; kept off system drive)
+.remotion-tmp/
