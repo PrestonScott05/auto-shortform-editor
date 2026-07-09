@@ -39,7 +39,7 @@ layout:
   board_top_ratio: 0.57       # where the tier board starts (fraction of height). Lower it
                               # to give a tall close-up head more room above the board.
   video_scale: 1.0            # zoom the talking head (raise for wide shots)
-  video_translate_y: -70      # px; negative = move video up so the full face clears the board.
+  video_translate_y: -115     # px; negative = move video up so the full face clears the board.
                               # Less negative (~-60) for close-up selfies; more for wider shots.
   caption_baseline_ratio: 0.44 # captions sit just above the board
   show_captions: true         # false = rely on the source's own burned-in captions
