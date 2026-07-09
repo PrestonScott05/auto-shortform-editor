@@ -7,7 +7,7 @@
     :root { --bg:#111; --card:#1c1c22; --line:#333; --accent:#3b82f6; }
     * { box-sizing: border-box; }
     body { font-family: system-ui, Arial, sans-serif; margin: 0; background: var(--bg); color: #eee; }
-    header { padding: 12px 16px; background: var(--card); display: flex; gap: 12px; align-items: center; position: sticky; top: 0; z-index: 5; border-bottom: 1px solid var(--line); }
+    header { padding: 12px 16px; background: var(--card); display: flex; gap: 12px; align-items: center; position: sticky; top: 0; z-index: 5; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
     h1 { font-size: 15px; margin: 0; }
     h3 { margin: 0 0 10px; font-size: 14px; }
     main { display: grid; grid-template-columns: 340px 1fr; gap: 16px; padding: 16px; align-items: start; }
@@ -18,20 +18,28 @@
     .tier { font-weight: 800; padding: 2px 8px; border-radius: 4px; color: #111; }
     button { background: var(--accent); color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
     button.secondary { background: #333; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
     input, select { background: #0e0e12; color: #eee; border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; font-size: 12px; width: 100%; }
     input[type=color] { padding: 2px; height: 34px; }
+    input[type=checkbox] { width: auto; }
     label.row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .bulkrow { display: grid; grid-template-columns: 22px 120px 1fr; gap: 8px; align-items: center; margin-bottom: 10px; }
     .muted { color: #888; }
     code { color: #9cf; }
     .imgcell { display: flex; gap: 8px; align-items: flex-start; }
     .imgctl { display: flex; flex-direction: column; gap: 4px; flex: 1; }
     .preview { border-radius: 8px; padding: 18px 10px; text-align: center; background: linear-gradient(#2b2b33,#17171c); margin-top: 10px; }
+    .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: middle; margin-right: 4px; border: 1px solid #555; }
+    .divider { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+    .status { font-size: 12px; margin-top: 8px; min-height: 16px; }
   </style>
 </head>
 <body>
   <header>
     <h1>Editplan Editor</h1>
     <input type="file" id="file" accept="application/json" />
+    <button id="loadFolderBtn" class="secondary">Load folder (bulk)</button>
+    <input type="file" id="folderFallback" webkitdirectory multiple style="display:none">
     <span id="vid" class="muted">load <code>render/public/&lt;id&gt;/editplan.json</code></span>
     <span style="flex:1"></span>
     <button id="download" disabled>Download editplan.json</button>
@@ -39,6 +47,7 @@
   <main id="app"><div class="card muted">No editplan loaded.</div></main>
 
   <script>
+    // ============================= single-video mode =============================
     let plan = null, fileName = "editplan.json";
     const tierColors = {};
 
@@ -50,7 +59,7 @@
       (plan.tiers || []).forEach(t => tierColors[t.label.toUpperCase()] = t.color);
       document.getElementById('vid').textContent = plan.videoId;
       document.getElementById('download').disabled = false;
-      render();
+      renderSingle();
     });
 
     document.getElementById('download').addEventListener('click', () => {
@@ -72,7 +81,7 @@
       return `<span class="tier" style="background:${c}">${label}</span>`;
     }
 
-    function render() {
+    function renderSingle() {
       const app = document.getElementById('app');
       const L = plan.layout;
       app.innerHTML = '';
@@ -176,6 +185,196 @@
       ];
       if (sel && !fonts.includes(sel)) fonts.unshift(sel);
       return fonts.map(f => `<option value="${f}" ${f === sel ? 'selected' : ''}>${f.split(',')[0].replace(/'/g,'')}</option>`).join('');
+    }
+
+    // ============================== bulk (folder) mode ==============================
+    // Layout-only: framing + caption style. Never touches items/images/tiers/timings —
+    // those are video-specific and stay per-video (use single-file mode for those).
+    const BULK_FIELDS = [
+      { key: 'videoTranslateY',      label: 'Head Y (px)',        type: 'number', step: 5,    default: -115 },
+      { key: 'videoScale',           label: 'Video scale',        type: 'number', step: 0.05, default: 1.0 },
+      { key: 'boardTopRatio',        label: 'Board top (0-1)',    type: 'number', step: 0.01, default: 0.57 },
+      { key: 'captionBaselineRatio', label: 'Caption Y (0-1)',    type: 'number', step: 0.01, default: 0.44 },
+      { key: 'captionColor',         label: 'Caption color',      type: 'color',              default: '#FFFFFF' },
+      { key: 'captionActiveColor',   label: 'Caption highlight',  type: 'color',              default: '#FFE14D' },
+      { key: 'captionFont',          label: 'Caption font',       type: 'font',                default: 'Arial Black, Arial, sans-serif' },
+      { key: 'captionSize',          label: 'Caption size (px)',  type: 'number', step: 2,    default: 44 },
+      { key: 'showCaptions',         label: 'Show captions',      type: 'bool',                default: true },
+    ];
+
+    // bulk.plans: [{ id, plan, handle? }]  handle = FileSystemFileHandle when write access is available.
+    let bulk = { plans: [], canWrite: false };
+    let lastAppliedPatch = {};
+
+    document.getElementById('loadFolderBtn').addEventListener('click', async () => {
+      if (window.showDirectoryPicker) {
+        try {
+          const dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+          const plans = [];
+          await walkForEditplans(dir, 0, 3, plans);
+          if (!plans.length) { alert('No editplan.json files found under that folder.'); return; }
+          bulk = { plans, canWrite: true };
+          loadedFolder(true);
+          return;
+        } catch (err) {
+          if (err && err.name === 'AbortError') return; // user cancelled the picker
+          console.warn('Directory picker failed, falling back to read-only folder input:', err);
+        }
+      }
+      document.getElementById('folderFallback').click();
+    });
+
+    async function walkForEditplans(dirHandle, depth, maxDepth, out) {
+      for await (const [name, handle] of dirHandle.entries()) {
+        if (handle.kind === 'file' && name === 'editplan.json') {
+          const plan = JSON.parse(await (await handle.getFile()).text());
+          out.push({ id: plan.videoId || dirHandle.name, plan, handle });
+        } else if (handle.kind === 'directory' && depth < maxDepth) {
+          await walkForEditplans(handle, depth + 1, maxDepth, out);
+        }
+      }
+    }
+
+    // Read-only fallback for browsers without the File System Access API (e.g. Firefox).
+    document.getElementById('folderFallback').addEventListener('change', async (e) => {
+      const files = [...e.target.files].filter(f => f.name === 'editplan.json');
+      if (!files.length) { alert('No editplan.json files found under that folder.'); return; }
+      const plans = [];
+      for (const f of files) {
+        const plan = JSON.parse(await f.text());
+        const parts = (f.webkitRelativePath || f.name).split('/');
+        const id = plan.videoId || parts[parts.length - 2] || f.name;
+        plans.push({ id, plan, handle: null });
+      }
+      bulk = { plans, canWrite: false };
+      loadedFolder(false);
+    });
+
+    function loadedFolder(canWrite) {
+      document.getElementById('vid').textContent = `${bulk.plans.length} video(s) loaded (bulk)`;
+      document.getElementById('download').disabled = true; // single-file download not applicable in bulk mode
+      renderBulk();
+    }
+
+    function renderBulk() {
+      const app = document.getElementById('app');
+      app.innerHTML = '';
+
+      const left = document.createElement('div');
+      left.className = 'card';
+      left.innerHTML = `<h3>Bulk layout changes</h3>
+        <p class="muted" style="font-size:12px;margin-top:-4px">
+          Check a field, set a value, then <b>Apply</b>. Only checked fields change.
+          Items, images, tiers, and timings are never touched — they stay per-video.
+        </p>
+        <div id="bulkFields"></div>
+        <button id="bulkApply">Apply to ${bulk.plans.length} loaded</button>
+        <div class="status" id="bulkStatus"></div>
+        <hr class="divider">
+        <button id="bulkSave" class="secondary" ${bulk.canWrite ? '' : 'disabled'}>Save all to disk</button>
+        <button id="bulkDownload" class="secondary">Download patch (.json)</button>
+        <div class="muted" style="font-size:11px;margin-top:8px">
+          ${bulk.canWrite
+            ? 'Folder access granted — Save writes each editplan.json back directly.'
+            : 'Read-only in this browser. Download the patch, then run:<br><code>python pipeline\\apply_bulk_layout.py bulk-layout-patch.json</code>'}
+        </div>`;
+      app.appendChild(left);
+
+      const fieldsEl = left.querySelector('#bulkFields');
+      const sample = bulk.plans[0]?.plan?.layout || {};
+      BULK_FIELDS.forEach(f => {
+        const cur = sample[f.key] !== undefined ? sample[f.key] : f.default;
+        let input;
+        if (f.type === 'color') {
+          input = `<input type="color" id="val_${f.key}" value="${cur}">`;
+        } else if (f.type === 'bool') {
+          input = `<select id="val_${f.key}"><option value="true" ${cur ? 'selected' : ''}>Yes</option><option value="false" ${!cur ? 'selected' : ''}>No</option></select>`;
+        } else if (f.type === 'font') {
+          input = `<select id="val_${f.key}">${fontOptions(cur)}</select>`;
+        } else {
+          input = `<input type="number" id="val_${f.key}" step="${f.step}" value="${cur}">`;
+        }
+        const row = document.createElement('div');
+        row.className = 'bulkrow';
+        row.innerHTML = `<input type="checkbox" id="inc_${f.key}"><span>${f.label}</span>${input}`;
+        fieldsEl.appendChild(row);
+      });
+
+      const right = document.createElement('div');
+      right.className = 'card';
+      right.innerHTML = `<h3>Loaded videos</h3>
+        <table><thead><tr><th>id</th><th>Head Y</th><th>board top</th><th>caption</th></tr></thead>
+        <tbody id="bulkTable"></tbody></table>`;
+      app.appendChild(right);
+      paintBulkTable();
+
+      left.querySelector('#bulkApply').addEventListener('click', () => {
+        const patch = {};
+        BULK_FIELDS.forEach(f => {
+          if (!document.getElementById(`inc_${f.key}`).checked) return;
+          const raw = document.getElementById(`val_${f.key}`).value;
+          patch[f.key] = f.type === 'number' ? Number(raw) : f.type === 'bool' ? raw === 'true' : raw;
+        });
+        if (!Object.keys(patch).length) {
+          document.getElementById('bulkStatus').textContent = 'Check at least one field first.';
+          return;
+        }
+        bulk.plans.forEach(p => { p.plan.layout = { ...p.plan.layout, ...patch }; });
+        lastAppliedPatch = patch;
+        document.getElementById('bulkStatus').textContent = `Applied ${JSON.stringify(patch)} to ${bulk.plans.length} plan(s) in memory. Save or download to persist.`;
+        paintBulkTable();
+      });
+
+      left.querySelector('#bulkSave').addEventListener('click', async () => {
+        const status = document.getElementById('bulkStatus');
+        let ok = 0;
+        for (const p of bulk.plans) {
+          if (!p.handle) continue;
+          try {
+            const w = await p.handle.createWritable();
+            await w.write(JSON.stringify(p.plan, null, 2));
+            await w.close();
+            ok++;
+          } catch (err) { console.error(`failed to save ${p.id}:`, err); }
+        }
+        status.textContent = `Saved ${ok}/${bulk.plans.length} editplan.json files. Refresh Remotion Studio (Ctrl+Shift+R).`;
+      });
+
+      left.querySelector('#bulkDownload').addEventListener('click', () => {
+        const patch = Object.keys(lastAppliedPatch).length ? lastAppliedPatch : (() => {
+          const p = {};
+          BULK_FIELDS.forEach(f => {
+            if (!document.getElementById(`inc_${f.key}`).checked) return;
+            const raw = document.getElementById(`val_${f.key}`).value;
+            p[f.key] = f.type === 'number' ? Number(raw) : f.type === 'bool' ? raw === 'true' : raw;
+          });
+          return p;
+        })();
+        if (!Object.keys(patch).length) {
+          document.getElementById('bulkStatus').textContent = 'Check at least one field first.';
+          return;
+        }
+        const blob = new Blob([JSON.stringify({ layout: patch }, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'bulk-layout-patch.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+    }
+
+    function paintBulkTable() {
+      const tbody = document.getElementById('bulkTable');
+      if (!tbody) return;
+      tbody.innerHTML = bulk.plans.map(p => {
+        const L = p.plan.layout || {};
+        return `<tr>
+          <td>${p.id.slice(0, 12)}</td>
+          <td>${L.videoTranslateY}</td>
+          <td>${L.boardTopRatio}</td>
+          <td><span class="swatch" style="background:${L.captionColor || '#fff'}"></span>${L.captionSize || ''}px</td>
+        </tr>`;
+      }).join('');
     }
   </script>
 </body>

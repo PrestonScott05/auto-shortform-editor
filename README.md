@@ -79,6 +79,30 @@ npm run still  -- <id> 300   # preview a single frame
 npm run render -- <id>       # final mp4 to out/<id>.mp4
 ```
 
+## Adjusting framing/captions across videos
+
+`review/review.html` has two modes:
+
+- **Single file** — load one `render/public/<id>/editplan.json` to swap photos and tweak
+  that video's caption style/framing. Download and drop it back in place.
+- **Load folder (bulk)** — pick the `render/public` folder to change framing/caption
+  settings (video Y, scale, board position, caption color/font/size) across every loaded
+  video at once. Never touches items, images, tiers, or timings — those stay per-video.
+  In Chrome/Edge it can save the files directly; otherwise it downloads a patch file to
+  apply with:
+  ```powershell
+  .\.venv\Scripts\python.exe pipeline\apply_bulk_layout.py bulk-layout-patch.json
+  ```
+
+For scripting a single field on one video without opening a browser:
+```powershell
+.\.venv\Scripts\python.exe pipeline\set_layout.py <videoId> videoTranslateY=-150
+```
+
+Any of these change `render/public/<id>/editplan.json` directly — refresh Remotion Studio
+(Ctrl+Shift+R) to preview. Re-running `s5_editplan.py --force` for a video regenerates its
+editplan from `config.yaml`, overwriting these overrides.
+
 ## Configuration
 
 All defaults live in `config.yaml`: tier labels and colors, whisper model, LLM model, image
