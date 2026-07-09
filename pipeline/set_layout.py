@@ -6,13 +6,14 @@ can tweak framing/captions and just refresh Studio to preview. Examples:
 
 This is a PER-VIDEO override written straight to render/public/<id>/editplan.json (and the
 work/ copy). It does NOT touch config.yaml, and re-running `s5 --force` for this video will
-overwrite it. For a change that should apply to every video, edit config.yaml instead.
+overwrite it. For a change that should apply to every video, edit config.yaml instead, or
+use apply_bulk_layout.py.
 """
 from __future__ import annotations
 
 import sys
 
-from common import public_dir, read_json, work_dir, write_json
+from common import LAYOUT_KEYS, patch_editplan_layout
 
 
 def cast(v: str):
@@ -34,25 +35,14 @@ def main(argv: list[str]) -> None:
         k, _, v = a.partition("=")
         patches[k] = cast(v)
 
-    touched = 0
-    for base in (public_dir(vid), work_dir(vid)):
-        p = base / "editplan.json"
-        if not p.exists():
-            continue
-        plan = read_json(p)
-        layout = plan.setdefault("layout", {})
-        unknown = [k for k in patches if k not in layout]
-        if unknown:
-            print(f"skipping unknown layout keys {unknown}; valid keys: {sorted(layout)}")
-        applied = {k: v for k, v in patches.items() if k in layout}
-        if not applied:
-            continue
-        layout.update(applied)
-        write_json(p, plan)
-        touched += 1
-        print(f"patched {p} -> {applied}")
-    if not touched:
-        raise SystemExit(f"no editplan found for '{vid}'. Run s5 first, or check the id.")
+    unknown = [k for k in patches if k not in LAYOUT_KEYS]
+    if unknown:
+        print(f"skipping unknown layout keys {unknown}; valid keys: {LAYOUT_KEYS}")
+
+    applied = patch_editplan_layout(vid, patches)
+    if not applied:
+        raise SystemExit(f"no editplan found for '{vid}' (or no valid keys). Run s5 first, or check the id.")
+    print(f"patched {vid} -> {applied}")
     print("Refresh the Remotion Studio tab (or reselect the composition) to preview.")
 
 

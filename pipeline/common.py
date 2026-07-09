@@ -89,6 +89,34 @@ def list_videos() -> list[Path]:
     return sorted(p for p in d.iterdir() if p.suffix.lower() in exts)
 
 
+# Fields on editplan.layout — framing/caption presentation, never video-specific data
+# (items, images, tiers, timings). Bulk tools only ever touch these.
+LAYOUT_KEYS = [
+    "videoScale", "videoTranslateY", "boardTopRatio", "captionBaselineRatio",
+    "showCaptions", "captionColor", "captionActiveColor", "captionFont", "captionSize",
+]
+
+
+def patch_editplan_layout(video_id: str, patches: dict) -> dict:
+    """Apply layout-only patches to both editplan copies (public = rendered, work =
+    reference). Unknown keys are silently ignored. Returns the patch actually applied
+    (empty dict if no editplan exists for this video)."""
+    applied: dict = {}
+    for base in (public_dir(video_id), work_dir(video_id)):
+        p = base / "editplan.json"
+        if not p.exists():
+            continue
+        plan = read_json(p)
+        layout = plan.setdefault("layout", {})
+        ok = {k: v for k, v in patches.items() if k in LAYOUT_KEYS}
+        if not ok:
+            continue
+        layout.update(ok)
+        write_json(p, plan)
+        applied = ok
+    return applied
+
+
 @dataclass
 class Probe:
     width: int
