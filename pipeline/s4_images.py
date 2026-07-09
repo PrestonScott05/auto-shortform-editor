@@ -89,7 +89,9 @@ def images_one(video_id: str, force: bool = False) -> None:
     for it in events.get("items", []):
         if it.get("image") and not force:
             continue
-        query = it.get("query") or it["name"]
+        base = it.get("query") or it["name"]
+        suffix = CFG["images"].get("query_suffix", "").strip()
+        query = f"{base} {suffix}".strip() if suffix else base
         print(f"[s4] {video_id}: '{query}'")
         try:
             candidates = find_candidates(query)

@@ -24,6 +24,7 @@ images:
   engine: serpapi             # serpapi | openverse (openverse = free, no key)
   results_per_item: 1
   timeout_sec: 20
+  query_suffix: "meme funny"  # appended to every image query to bias toward humor; "" to disable
 
 # Standard tiermaker colors. Order = top-to-bottom rows.
 tiers:
@@ -43,3 +44,7 @@ layout:
                               # Less negative (~-60) for close-up selfies; more for wider shots.
   caption_baseline_ratio: 0.44 # captions sit just above the board
   show_captions: true         # false = rely on the source's own burned-in captions
+  caption_color: "#FFFFFF"          # unspoken word color
+  caption_active_color: "#FFE14D"   # highlighted (spoken) word color
+  caption_font: "Arial Black, Arial, sans-serif"
+  caption_size: 44                  # px

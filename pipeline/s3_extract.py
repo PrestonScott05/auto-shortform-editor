@@ -24,7 +24,10 @@ SYSTEM = (
     "  'tier': one letter from the allowed tiers,\n"
     "  'introSec': seconds when the thing is first mentioned/introduced,\n"
     "  'ratedSec': seconds when the tier is stated (must be >= introSec),\n"
-    "  'query': a concise, unambiguous image-search query for the thing }.\n"
+    "  'query': an image-search query that surfaces a FUNNY, meme-worthy, or quirky\n"
+    "    relatable image of the thing aimed at 18-25 year olds (gym-bro memes, reaction\n"
+    "    images, ironic/absurd takes, shitpost energy) rather than a clean stock photo.\n"
+    "    Keep it punchy and specific; there should be something a little off/funny about it }.\n"
     "Use the word timestamps to set introSec/ratedSec accurately. Skip asides that are not rated."
 )
 
