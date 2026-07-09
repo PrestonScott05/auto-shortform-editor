@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "studio": "remotion studio",
+    "manifest": "node gen-manifest.mjs",
+    "studio": "node gen-manifest.mjs && remotion studio",
     "render": "node render.mjs",
     "still": "node still.mjs"
   },

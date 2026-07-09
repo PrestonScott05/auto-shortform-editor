@@ -4,6 +4,9 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
+// Ensure src/manifest.ts exists so the bundle compiles.
+spawnSync("node", ["gen-manifest.mjs"], { stdio: "inherit", shell: true });
+
 const id = process.argv[2];
 const frame = process.argv[3] ?? "0";
 if (!id) {
