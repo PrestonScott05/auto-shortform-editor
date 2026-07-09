@@ -91,6 +91,9 @@
         </label>
         <label class="row"><span>Size (px)</span><input type="number" id="capSize" min="16" max="120" value="${L.captionSize || 44}"></label>
         <div class="preview" id="capPreview"></div>
+        <h3 style="margin-top:16px">Framing</h3>
+        <label class="row"><span>Head Y (px)</span><input type="number" id="vy" min="-500" max="300" step="5" value="${L.videoTranslateY}"></label>
+        <div class="muted" style="font-size:11px;margin-top:-4px">Negative moves the video up so the head clears the board. Re-render to see it.</div>
         <h3 style="margin-top:16px">Video</h3>
         <div class="muted" style="font-size:12px">
           ${plan.width}×${plan.height} · ${plan.fps}fps · ${(plan.durationInFrames/plan.fps).toFixed(1)}s<br>
@@ -148,6 +151,7 @@
       bind('capActive', 'captionActiveColor');
       bind('capFont', 'captionFont');
       bind('capSize', 'captionSize', (v) => Number(v));
+      document.getElementById('vy').addEventListener('input', (e) => { plan.layout.videoTranslateY = Number(e.target.value); });
       paintPreview();
     }
 
