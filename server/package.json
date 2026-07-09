@@ -1,0 +1,14 @@
+{
+  "name": "editing-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.0.0",
+    "js-yaml": "^4.1.0"
+  }
+}

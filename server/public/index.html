@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Editing Pipeline Dashboard</title>
+  <style>
+    :root { --bg:#111; --card:#1c1c22; --line:#333; --accent:#3b82f6; --ok:#3ba55d; --warn:#e0a83a; --bad:#e05a4c; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 0; background: var(--bg); color: #eee; }
+    header { padding: 14px 18px; background: var(--card); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    h1 { font-size: 17px; margin: 0; }
+    main { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: var(--card); border-radius: 8px; padding: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    th { color: #999; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+    button { background: var(--accent); color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
+    button.secondary { background: #333; }
+    button.small { padding: 5px 10px; font-size: 12px; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    input[type=checkbox] { width: 16px; height: 16px; }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; margin-right: 4px; }
+    .chip.ok { background: var(--ok); color: #fff; }
+    .chip.warn { background: var(--warn); color: #111; }
+    .chip.off { background: #3a3a42; color: #999; }
+    .muted { color: #888; }
+    .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .toolbar label { font-size: 13px; display: flex; align-items: center; gap: 5px; }
+    #log { background: #0a0a0d; border-radius: 6px; padding: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; height: 220px; overflow-y: auto; white-space: pre-wrap; }
+    .id { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    a.link { color: #6ea8fe; text-decoration: none; }
+    a.link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Editing Pipeline</h1>
+    <label class="link" style="cursor:pointer">
+      <input type="file" id="upload" accept="video/*" multiple style="display:none">
+      <button class="secondary" id="uploadBtn">Add video files</button>
+    </label>
+    <span id="uploadStatus" class="muted"></span>
+    <span style="flex:1"></span>
+    <button class="secondary" id="studioBtn">Open Remotion Studio</button>
+  </header>
+
+  <main>
+    <div class="card">
+      <div class="toolbar" style="margin-bottom:12px">
+        <button id="selectAll" class="secondary small">Select all</button>
+        <button id="selectNone" class="secondary small">Select none</button>
+        <span class="muted">|</span>
+        <label><input type="checkbox" id="stageAll" checked> all stages</label>
+        <label><input type="checkbox" id="stageForce"> force re-run</label>
+        <button id="runBtn">Run pipeline on selected</button>
+        <span id="runStatus" class="muted"></span>
+      </div>
+      <table>
+        <thead><tr>
+          <th></th><th>video</th><th>category</th><th>stages</th><th>actions</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Pipeline log</h3>
+      <div id="log">No job running yet.</div>
+    </div>
+  </main>
+
+  <script>
+    let videos = [];
+
+    async function refresh() {
+      videos = await fetch('/api/videos').then(r => r.json());
+      paintRows();
+    }
+
+    function stageChip(name, ok) {
+      if (ok === null || ok === undefined) return `<span class="chip off">${name}</span>`;
+      return `<span class="chip ${ok ? 'ok' : 'warn'}">${name}</span>`;
+    }
+
+    function paintRows() {
+      const tbody = document.getElementById('rows');
+      tbody.innerHTML = videos.map(v => `
+        <tr>
+          <td><input type="checkbox" class="rowsel" data-id="${v.id}"></td>
+          <td><span class="id">${v.id.slice(0, 12)}…</span><br><span class="muted" style="font-size:11px">${v.filename}</span></td>
+          <td>${v.category ? `<b>${v.category}</b><br><span class="muted" style="font-size:11px">${v.label || ''}</span>` : '<span class="muted">—</span>'}</td>
+          <td>
+            ${stageChip('transcript', v.stages.transcript)}
+            ${stageChip('classify', v.stages.classified)}
+            ${stageChip('extract', v.stages.extracted)}
+            ${v.category === 'tierlist' ? stageChip('images', v.stages.images) : ''}
+            ${stageChip('editplan', v.stages.editplan)}
+          </td>
+          <td>
+            <button class="small ${v.stages.editplan ? '' : 'secondary'}" ${v.stages.editplan ? '' : 'disabled'} onclick="openEditor('${v.id}')">Open Editor</button>
+            <button class="small secondary" onclick="runOne('${v.id}')">Run</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    function openEditor(id) {
+      window.open(`/review/review.html?id=${id}`, '_blank');
+    }
+
+    function selectedIds() {
+      return [...document.querySelectorAll('.rowsel:checked')].map(el => el.dataset.id);
+    }
+
+    document.getElementById('selectAll').onclick = () => { document.querySelectorAll('.rowsel').forEach(el => el.checked = true); };
+    document.getElementById('selectNone').onclick = () => { document.querySelectorAll('.rowsel').forEach(el => el.checked = false); };
+
+    async function runIds(ids) {
+      const only = document.getElementById('stageAll').checked ? [] : [];
+      const force = document.getElementById('stageForce').checked;
+      const status = document.getElementById('runStatus');
+      status.textContent = `Starting on ${ids.length || 'all'} video(s)…`;
+      const { jobId } = await fetch('/api/run', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, only, force }),
+      }).then(r => r.json());
+      pollJob(jobId);
+    }
+
+    document.getElementById('runBtn').onclick = () => runIds(selectedIds());
+    function runOne(id) { runIds([id]); }
+    window.runOne = runOne;
+    window.openEditor = openEditor;
+
+    async function pollJob(jobId) {
+      const log = document.getElementById('log');
+      const status = document.getElementById('runStatus');
+      let shown = 0;
+      const tick = async () => {
+        const job = await fetch(`/api/run/${jobId}`).then(r => r.json());
+        if (job.log.length > shown) {
+          log.textContent = job.log.join('\n');
+          log.scrollTop = log.scrollHeight;
+          shown = job.log.length;
+        }
+        if (job.status === 'running') {
+          status.textContent = 'Running…';
+          setTimeout(tick, 1200);
+        } else {
+          status.textContent = job.status === 'done' ? 'Done.' : `Failed (exit ${job.exitCode}).`;
+          refresh();
+        }
+      };
+      tick();
+    }
+
+    document.getElementById('uploadBtn').onclick = () => document.getElementById('upload').click();
+    document.getElementById('upload').addEventListener('change', async (e) => {
+      const files = [...e.target.files];
+      if (!files.length) return;
+      const status = document.getElementById('uploadStatus');
+      status.textContent = `Uploading ${files.length} file(s)…`;
+      const form = new FormData();
+      files.forEach(f => form.append('videos', f));
+      const res = await fetch('/api/upload', { method: 'POST', body: form }).then(r => r.json());
+      status.textContent = `Uploaded ${res.uploaded.length} file(s).`;
+      e.target.value = '';
+      refresh();
+    });
+
+    document.getElementById('studioBtn').onclick = async () => {
+      const { url } = await fetch('/api/studio/launch', { method: 'POST' }).then(r => r.json());
+      window.open(url, '_blank');
+    };
+
+    refresh();
+    setInterval(refresh, 8000);
+  </script>
+</body>
+</html>

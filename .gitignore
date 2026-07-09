@@ -7,6 +7,7 @@ render/node_modules/
 render/public/
 render/out/
 render/src/manifest.ts
+server/node_modules/
 __pycache__/
 *.pyc
 Videos/
