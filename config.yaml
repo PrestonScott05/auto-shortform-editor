@@ -21,7 +21,7 @@ llm:
   max_tokens: 8000
 
 images:
-  engine: serpapi             # serpapi | openverse (openverse = free, no key)
+  engine: duckduckgo          # duckduckgo (free, no key, web/meme images) | serpapi | openverse
   results_per_item: 1
   timeout_sec: 20
   query_suffix: "meme funny"  # appended to every image query to bias toward humor; "" to disable

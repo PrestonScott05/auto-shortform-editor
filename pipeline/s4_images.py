@@ -45,9 +45,34 @@ def openverse_candidates(query: str) -> list[str]:
     return [res["url"] for res in r.json().get("results", []) if res.get("url")]
 
 
+def duckduckgo_candidates(query: str) -> list[str]:
+    """Free web image search, no API key. Surfaces real/meme images (not just CC stock)."""
+    import re
+    s = requests.Session()
+    s.headers.update(UA)
+    timeout = CFG["images"]["timeout_sec"]
+    # DuckDuckGo requires a per-query vqd token from the search page first.
+    page = s.post("https://duckduckgo.com/", data={"q": query}, timeout=timeout)
+    m = re.search(r'vqd=["\']([^"\']+)["\']', page.text) or re.search(r"vqd=([\d-]+)", page.text)
+    if not m:
+        return []
+    r = s.get(
+        "https://duckduckgo.com/i.js",
+        params={"l": "us-en", "o": "json", "q": query, "vqd": m.group(1), "f": ",,,", "p": "1"},
+        headers={"Referer": "https://duckduckgo.com/"},
+        timeout=timeout,
+    )
+    r.raise_for_status()
+    return [x["image"] for x in r.json().get("results", []) if x.get("image")]
+
+
 def find_candidates(query: str) -> list[str]:
     engine = CFG["images"]["engine"]
-    return serpapi_candidates(query) if engine == "serpapi" else openverse_candidates(query)
+    if engine == "serpapi":
+        return serpapi_candidates(query)
+    if engine == "openverse":
+        return openverse_candidates(query)
+    return duckduckgo_candidates(query)
 
 
 def download(url: str, dest_noext: Path) -> Path | None:
