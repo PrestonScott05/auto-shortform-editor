@@ -1,4 +1,5 @@
 # EditingAutomation
+*work in progress*
 
 Automated editing pipeline that turns raw talking-head tier-list videos into finished
 vertical shorts. It transcribes each clip on the GPU, uses an LLM to detect what is being
@@ -19,7 +20,7 @@ configurable.
   standard colors, and item images that animate into their tier cell when rated.
 
 It is semi-automated on purpose. Every stage writes JSON you can inspect and fix before
-rendering, so mistakes from transcription or image search do not ship.
+rendering, so mistakes from transcription or image search can be mitigated.
 
 ## Pipeline
 
