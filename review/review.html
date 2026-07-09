@@ -36,12 +36,16 @@
 </head>
 <body>
   <header>
+    <a href="/" class="muted" style="text-decoration:none;font-size:13px">&larr; Home</a>
     <h1>Editplan Editor</h1>
     <input type="file" id="file" accept="application/json" />
+    <button id="loadAllBtn" class="secondary">Load all videos (bulk)</button>
     <button id="loadFolderBtn" class="secondary">Load folder (bulk)</button>
     <input type="file" id="folderFallback" webkitdirectory multiple style="display:none">
     <span id="vid" class="muted">load <code>render/public/&lt;id&gt;/editplan.json</code></span>
     <span style="flex:1"></span>
+    <span id="saveStatus" class="muted" style="font-size:12px"></span>
+    <button id="save" class="secondary" disabled>Save</button>
     <button id="download" disabled>Download editplan.json</button>
   </header>
   <main id="app"><div class="card muted">No editplan loaded.</div></main>
@@ -56,11 +60,32 @@
       if (!f) return;
       fileName = f.name || "editplan.json";
       plan = JSON.parse(await f.text());
+      loadedSingle();
+    });
+
+    function loadedSingle() {
       (plan.tiers || []).forEach(t => tierColors[t.label.toUpperCase()] = t.color);
       document.getElementById('vid').textContent = plan.videoId;
       document.getElementById('download').disabled = false;
+      document.getElementById('save').disabled = false;
       renderSingle();
-    });
+    }
+
+    // If opened as /review/review.html?id=<videoId> (from the dashboard), load it directly —
+    // no file picker needed.
+    (async () => {
+      const id = new URLSearchParams(location.search).get('id');
+      if (!id) return;
+      try {
+        const res = await fetch(`/render/public/${id}/editplan.json`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        plan = await res.json();
+        fileName = 'editplan.json';
+        loadedSingle();
+      } catch (err) {
+        document.getElementById('vid').textContent = `failed to load '${id}': ${err.message}`;
+      }
+    })();
 
     document.getElementById('download').addEventListener('click', () => {
       const blob = new Blob([JSON.stringify(plan, null, 2)], { type: 'application/json' });
@@ -69,6 +94,26 @@
       a.download = 'editplan.json';
       a.click();
       URL.revokeObjectURL(a.href);
+    });
+
+    // Save directly through the dashboard server (works when served over http(s); browsers
+    // block file writes when opened as a raw file:// page — use Download there instead).
+    async function saveToServer(id, planObj) {
+      const res = await fetch(`/api/editplan/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(planObj),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+    }
+
+    document.getElementById('save').addEventListener('click', async () => {
+      const status = document.getElementById('saveStatus');
+      status.textContent = 'Saving…';
+      try {
+        await saveToServer(plan.videoId, plan);
+        status.textContent = 'Saved. Refresh Remotion Studio (Ctrl+Shift+R) to preview.';
+      } catch (err) {
+        status.textContent = `Save failed (${err.message}) — opened as a file? Use Download instead.`;
+      }
     });
 
     // Resolve an image value for preview: absolute URL/data URI as-is, else served from public/.
@@ -214,7 +259,7 @@
           await walkForEditplans(dir, 0, 3, plans);
           if (!plans.length) { alert('No editplan.json files found under that folder.'); return; }
           bulk = { plans, canWrite: true };
-          loadedFolder(true);
+          loadedFolder();
           return;
         } catch (err) {
           if (err && err.name === 'AbortError') return; // user cancelled the picker
@@ -247,12 +292,32 @@
         plans.push({ id, plan, handle: null });
       }
       bulk = { plans, canWrite: false };
-      loadedFolder(false);
+      loadedFolder();
     });
 
-    function loadedFolder(canWrite) {
+    // Load every video's editplan straight from the dashboard server — no folder picker,
+    // works in any browser, always available when the server is running.
+    document.getElementById('loadAllBtn').addEventListener('click', async () => {
+      try {
+        const list = await fetch('/api/videos').then(r => r.json());
+        const plans = [];
+        for (const v of list) {
+          if (!v.stages.editplan) continue;
+          const plan = await fetch(`/render/public/${v.id}/editplan.json`).then(r => r.json());
+          plans.push({ id: v.id, plan, handle: null });
+        }
+        if (!plans.length) { alert('No editplans found yet — run the pipeline first.'); return; }
+        bulk = { plans, canWrite: false };
+        loadedFolder();
+      } catch (err) {
+        alert(`Could not reach the dashboard server (${err.message}). Use "Load folder (bulk)" instead.`);
+      }
+    });
+
+    function loadedFolder() {
       document.getElementById('vid').textContent = `${bulk.plans.length} video(s) loaded (bulk)`;
       document.getElementById('download').disabled = true; // single-file download not applicable in bulk mode
+      document.getElementById('save').disabled = true;
       renderBulk();
     }
 
@@ -271,12 +336,13 @@
         <button id="bulkApply">Apply to ${bulk.plans.length} loaded</button>
         <div class="status" id="bulkStatus"></div>
         <hr class="divider">
-        <button id="bulkSave" class="secondary" ${bulk.canWrite ? '' : 'disabled'}>Save all to disk</button>
+        <button id="bulkSave" class="secondary">Save all</button>
         <button id="bulkDownload" class="secondary">Download patch (.json)</button>
         <div class="muted" style="font-size:11px;margin-top:8px">
-          ${bulk.canWrite
-            ? 'Folder access granted — Save writes each editplan.json back directly.'
-            : 'Read-only in this browser. Download the patch, then run:<br><code>python pipeline\\apply_bulk_layout.py bulk-layout-patch.json</code>'}
+          Save tries the dashboard server first (works regardless of browser or how the
+          folder was loaded); falls back to direct folder write if the server isn't
+          reachable and this browser granted write access. If neither works, download the
+          patch and run:<br><code>python pipeline\\apply_bulk_layout.py bulk-layout-patch.json</code>
         </div>`;
       app.appendChild(left);
 
@@ -327,17 +393,33 @@
 
       left.querySelector('#bulkSave').addEventListener('click', async () => {
         const status = document.getElementById('bulkStatus');
-        let ok = 0;
+        status.textContent = 'Saving…';
+        let serverOk = 0, fsOk = 0, failed = 0;
         for (const p of bulk.plans) {
-          if (!p.handle) continue;
           try {
-            const w = await p.handle.createWritable();
-            await w.write(JSON.stringify(p.plan, null, 2));
-            await w.close();
-            ok++;
-          } catch (err) { console.error(`failed to save ${p.id}:`, err); }
+            await saveToServer(p.id, p.plan);
+            serverOk++;
+            continue;
+          } catch (err) {
+            // Server unreachable (e.g. opened as a raw file) — fall back to a direct folder
+            // write if this browser granted one.
+          }
+          if (p.handle) {
+            try {
+              const w = await p.handle.createWritable();
+              await w.write(JSON.stringify(p.plan, null, 2));
+              await w.close();
+              fsOk++;
+              continue;
+            } catch (err) { console.error(`failed to save ${p.id} via folder handle:`, err); }
+          }
+          failed++;
         }
-        status.textContent = `Saved ${ok}/${bulk.plans.length} editplan.json files. Refresh Remotion Studio (Ctrl+Shift+R).`;
+        const parts = [];
+        if (serverOk) parts.push(`${serverOk} via server`);
+        if (fsOk) parts.push(`${fsOk} via folder write`);
+        if (failed) parts.push(`${failed} failed (use Download patch instead)`);
+        status.textContent = `Saved: ${parts.join(', ')}. Refresh Remotion Studio (Ctrl+Shift+R).`;
       });
 
       left.querySelector('#bulkDownload').addEventListener('click', () => {
