@@ -16,42 +16,38 @@ from common import CFG, list_videos, public_dir, read_json, stage_done, video_id
 UA = {"User-Agent": "Mozilla/5.0 (auto-editing-pipeline)"}
 
 
-def serpapi_image(query: str) -> str | None:
+def serpapi_candidates(query: str) -> list[str]:
     key = os.environ.get("SERPAPI_KEY")
     if not key:
-        raise SystemExit("SERPAPI_KEY not set. Add to .env, or set images.engine: openverse in config.yaml.")
+        raise SystemExit("SERPAPI_KEY not set. Add to .env.local, or set images.engine: openverse in config.yaml.")
     r = requests.get(
         "https://serpapi.com/search.json",
         params={"engine": "google_images", "q": query, "api_key": key, "num": 10},
         timeout=CFG["images"]["timeout_sec"],
     )
     r.raise_for_status()
+    urls = []
     for img in r.json().get("images_results", []):
         url = img.get("original") or img.get("thumbnail")
         if url:
-            return url
-    return None
+            urls.append(url)
+    return urls
 
 
-def openverse_image(query: str) -> str | None:
+def openverse_candidates(query: str) -> list[str]:
     """Free CC-licensed fallback; no API key required."""
     r = requests.get(
         "https://api.openverse.org/v1/images/",
-        params={"q": query, "page_size": 5, "license_type": "commercial"},
+        params={"q": query, "page_size": 10, "license_type": "commercial"},
         headers=UA, timeout=CFG["images"]["timeout_sec"],
     )
     r.raise_for_status()
-    for res in r.json().get("results", []):
-        if res.get("url"):
-            return res["url"]
-    return None
+    return [res["url"] for res in r.json().get("results", []) if res.get("url")]
 
 
-def find_image_url(query: str) -> str | None:
+def find_candidates(query: str) -> list[str]:
     engine = CFG["images"]["engine"]
-    if engine == "serpapi":
-        return serpapi_image(query)
-    return openverse_image(query)
+    return serpapi_candidates(query) if engine == "serpapi" else openverse_candidates(query)
 
 
 def download(url: str, dest_noext: Path) -> Path | None:
@@ -61,14 +57,22 @@ def download(url: str, dest_noext: Path) -> Path | None:
     except Exception as e:  # noqa: BLE001
         print(f"        download failed: {e}")
         return None
-    ctype = r.headers.get("content-type", "")
+    ctype = r.headers.get("content-type", "").split(";")[0].strip().lower()
+    if not ctype.startswith("image/"):
+        print(f"        rejected: not an image ({ctype or 'unknown'})")
+        return None
     ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}.get(
-        ctype.split(";")[0].strip(), ".jpg"
+        ctype, ".jpg"
     )
     dest = dest_noext.with_suffix(ext)
     with open(dest, "wb") as f:
         for chunk in r.iter_content(8192):
             f.write(chunk)
+    # Reject tiny/placeholder files (error pages, 1x1 trackers).
+    if dest.stat().st_size < 2048:
+        print(f"        rejected: too small ({dest.stat().st_size} bytes)")
+        dest.unlink(missing_ok=True)
+        return None
     return dest
 
 
@@ -88,19 +92,22 @@ def images_one(video_id: str, force: bool = False) -> None:
         query = it.get("query") or it["name"]
         print(f"[s4] {video_id}: '{query}'")
         try:
-            url = find_image_url(query)
+            candidates = find_candidates(query)
         except SystemExit:
             raise
         except Exception as e:  # noqa: BLE001
             print(f"        search failed: {e}")
-            url = None
-        if not url:
-            print("        no image found")
-            continue
-        dest = download(url, img_dir / it["id"])
-        if dest:
-            it["image"] = f"{video_id}/images/{dest.name}"  # relative to render/public
-            it["imageSource"] = url
+            candidates = []
+        # Try candidates in order until one downloads as a valid image.
+        for url in candidates:
+            dest = download(url, img_dir / it["id"])
+            if dest:
+                it["image"] = f"{video_id}/images/{dest.name}"  # relative to render/public
+                it["imageSource"] = url
+                break
+        else:
+            it["image"] = None
+            print("        no usable image found")
     write_json(events_path, events)
 
 
