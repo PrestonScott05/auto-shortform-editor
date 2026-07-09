@@ -12,9 +12,9 @@ export function boardGeometry(plan: Editplan) {
   const boardHeight = plan.height - boardTop;
   const rowH = boardHeight / plan.tiers.length;
   const labelW = 96;
-  const pad = 8;
-  const cellSize = Math.min(rowH - pad * 2, 116);
-  return { boardTop, boardHeight, rowH, labelW, pad, cellSize };
+  // Square cells that fill the row height and tile edge-to-edge (tiermaker style).
+  const cellSize = rowH;
+  return { boardTop, boardHeight, rowH, labelW, cellSize };
 }
 
 export function tierRowIndex(plan: Editplan, tier: string): number {
@@ -27,7 +27,7 @@ export function cellRect(plan: Editplan, tier: string, slotIndex: number): Rect 
   if (idx < 0) return null;
   const g = boardGeometry(plan);
   const rowTop = g.boardTop + idx * g.rowH;
-  const x = g.labelW + g.pad + slotIndex * (g.cellSize + g.pad) + g.cellSize / 2;
+  const x = g.labelW + slotIndex * g.cellSize + g.cellSize / 2;
   const y = rowTop + g.rowH / 2;
   return { x, y, size: g.cellSize };
 }

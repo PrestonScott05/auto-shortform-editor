@@ -59,6 +59,7 @@ const ItemCard: React.FC<{ plan: Editplan; item: Item }> = ({ plan, item }) => {
   }
 
   const half = rect.size / 2;
+  const staging = frame < item.ratedFrame;
   return (
     <div
       style={{
@@ -67,32 +68,20 @@ const ItemCard: React.FC<{ plan: Editplan; item: Item }> = ({ plan, item }) => {
         top: rect.y - half,
         width: rect.size,
         height: rect.size,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
+        overflow: "hidden",
+        backgroundColor: "#222",
       }}
     >
-      <div
-        style={{
-          width: rect.size,
-          height: rect.size,
-          borderRadius: 12,
-          overflow: "hidden",
-          border: "3px solid #fff",
-          boxShadow: "0 6px 18px rgba(0,0,0,0.5)",
-          backgroundColor: "#222",
-        }}
-      >
-        {item.image && !imgError ? (
-          <Img
-            src={resolveSrc(item.image)}
-            onError={() => setImgError(true)}
-            style={{ width: "100%", height: "100%", objectFit: "contain" }}
-          />
-        ) : (
-          <NamePlaceholder name={item.name} />
-        )}
-      </div>
+      {item.image && !imgError ? (
+        <Img
+          src={resolveSrc(item.image)}
+          onError={() => setImgError(true)}
+          // Full image while staged/referenced; fills the square once placed so cells pack flush.
+          style={{ width: "100%", height: "100%", objectFit: staging ? "contain" : "cover" }}
+        />
+      ) : (
+        <NamePlaceholder name={item.name} />
+      )}
     </div>
   );
 };
