@@ -18,7 +18,7 @@ SYSTEM = (
     "The transcript is a list of words with start/end seconds. "
     "Identify each distinct THING the speaker rates and the tier they assign it. "
     "Return ONLY a JSON object with keys 'tiers' and 'items'.\n"
-    "'tiers' = the ordered list of tier labels actually used (subset/superset of {allowed}).\n"
+    "'tiers' = the ordered list of tier labels actually used (from the allowed tiers).\n"
     "'items' = array, in the order rated, each: {\n"
     "  'name': the thing's display name,\n"
     "  'tier': one letter from the allowed tiers,\n"
@@ -45,8 +45,7 @@ def extract_one(video_id: str, force: bool = False) -> dict | None:
     allowed = [t["label"] for t in CFG["tiers"]]
     # Compact word stream: "word@start" keeps tokens small but timed.
     stream = " ".join(f"{w['w']}@{w['start']}" for w in transcript["words"])
-    system = SYSTEM.format(allowed=allowed)
-    result = ask_json(system, f"Allowed tiers: {allowed}\nWords (word@startSec):\n{stream}")
+    result = ask_json(SYSTEM, f"Allowed tiers: {allowed}\nWords (word@startSec):\n{stream}")
 
     items = result.get("items", [])
     for i, it in enumerate(items):
