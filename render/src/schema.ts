@@ -31,6 +31,10 @@ export const layoutSchema = z.object({
   boardTopRatio: z.number(),
   captionBaselineRatio: z.number(),
   showCaptions: z.boolean().default(true),
+  captionColor: z.string().default("#FFFFFF"),
+  captionActiveColor: z.string().default("#FFE14D"),
+  captionFont: z.string().default("Arial Black, Arial, sans-serif"),
+  captionSize: z.number().default(44),
 });
 
 export const editplanSchema = z.object({

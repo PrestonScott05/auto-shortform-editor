@@ -9,6 +9,7 @@ export const Captions: React.FC<{ plan: Editplan }> = ({ plan }) => {
   if (!active) return null;
 
   const y = plan.height * plan.layout.captionBaselineRatio;
+  const { captionColor, captionActiveColor, captionFont, captionSize } = plan.layout;
   return (
     <AbsoluteFill>
       <div
@@ -30,10 +31,10 @@ export const Captions: React.FC<{ plan: Editplan }> = ({ plan }) => {
             <span
               key={i}
               style={{
-                fontFamily: "Arial Black, Arial, sans-serif",
+                fontFamily: captionFont,
                 fontWeight: 900,
-                fontSize: 44,
-                color: spoken ? "#FFE14D" : "#fff",
+                fontSize: captionSize,
+                color: spoken ? captionActiveColor : captionColor,
                 WebkitTextStroke: "6px #000",
                 paintOrder: "stroke fill",
                 textTransform: "uppercase",

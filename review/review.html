@@ -2,70 +2,176 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Editplan Review</title>
+  <title>Editplan Editor</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 0; background:#111; color:#eee; }
-    header { padding:12px 16px; background:#1c1c22; display:flex; gap:12px; align-items:center; }
-    h1 { font-size:16px; margin:0; }
-    main { display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:16px; }
-    .card { background:#1c1c22; border-radius:8px; padding:12px; }
-    table { width:100%; border-collapse:collapse; font-size:13px; }
-    th,td { text-align:left; padding:6px 8px; border-bottom:1px solid #333; }
-    img { width:64px; height:64px; object-fit:cover; border-radius:6px; background:#333; }
-    .tier { font-weight:800; padding:2px 8px; border-radius:4px; color:#111; }
-    button { background:#3b82f6; color:#fff; border:0; padding:8px 14px; border-radius:6px; cursor:pointer; }
-    .muted { color:#888; }
-    code { color:#9cf; }
+    :root { --bg:#111; --card:#1c1c22; --line:#333; --accent:#3b82f6; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 0; background: var(--bg); color: #eee; }
+    header { padding: 12px 16px; background: var(--card); display: flex; gap: 12px; align-items: center; position: sticky; top: 0; z-index: 5; border-bottom: 1px solid var(--line); }
+    h1 { font-size: 15px; margin: 0; }
+    h3 { margin: 0 0 10px; font-size: 14px; }
+    main { display: grid; grid-template-columns: 340px 1fr; gap: 16px; padding: 16px; align-items: start; }
+    .card { background: var(--card); border-radius: 8px; padding: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    img.thumb { width: 72px; height: 72px; object-fit: contain; border-radius: 6px; background: #333; display: block; }
+    .tier { font-weight: 800; padding: 2px 8px; border-radius: 4px; color: #111; }
+    button { background: var(--accent); color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.secondary { background: #333; }
+    input, select { background: #0e0e12; color: #eee; border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; font-size: 12px; width: 100%; }
+    input[type=color] { padding: 2px; height: 34px; }
+    label.row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .muted { color: #888; }
+    code { color: #9cf; }
+    .imgcell { display: flex; gap: 8px; align-items: flex-start; }
+    .imgctl { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .preview { border-radius: 8px; padding: 18px 10px; text-align: center; background: linear-gradient(#2b2b33,#17171c); margin-top: 10px; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Editplan Review</h1>
+    <h1>Editplan Editor</h1>
     <input type="file" id="file" accept="application/json" />
-    <span class="muted">load <code>render/public/&lt;id&gt;/editplan.json</code></span>
+    <span id="vid" class="muted">load <code>render/public/&lt;id&gt;/editplan.json</code></span>
+    <span style="flex:1"></span>
+    <button id="download" disabled>Download editplan.json</button>
   </header>
   <main id="app"><div class="card muted">No editplan loaded.</div></main>
+
   <script>
+    let plan = null, fileName = "editplan.json";
     const tierColors = {};
+
     document.getElementById('file').addEventListener('change', async (e) => {
       const f = e.target.files[0];
       if (!f) return;
-      const plan = JSON.parse(await f.text());
-      render(plan, f);
+      fileName = f.name || "editplan.json";
+      plan = JSON.parse(await f.text());
+      (plan.tiers || []).forEach(t => tierColors[t.label.toUpperCase()] = t.color);
+      document.getElementById('vid').textContent = plan.videoId;
+      document.getElementById('download').disabled = false;
+      render();
     });
 
-    function render(plan, file) {
-      (plan.tiers || []).forEach(t => tierColors[t.label.toUpperCase()] = t.color);
-      const app = document.getElementById('app');
-      app.innerHTML = '';
+    document.getElementById('download').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(plan, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'editplan.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
 
-      const meta = document.createElement('div');
-      meta.className = 'card';
-      meta.innerHTML = `<h3>${plan.videoId}</h3>
-        <div class="muted">${plan.width}×${plan.height} · ${plan.fps}fps · ${(plan.durationInFrames/plan.fps).toFixed(1)}s ·
-        ${plan.items.length} items · ${plan.captions.length} captions</div>
-        <div style="margin-top:8px">Tiers: ${(plan.tiers||[]).map(t=>tierChip(t.label)).join(' ')}</div>`;
-      app.appendChild(meta);
-
-      const itemsCard = document.createElement('div');
-      itemsCard.className = 'card';
-      const rows = plan.items.map(it => `<tr>
-        <td>${it.image ? `<img src="../render/public/${it.image}" onerror="this.style.opacity=.2">` : '<span class="muted">none</span>'}</td>
-        <td>${it.name}</td>
-        <td>${tierChip(it.tier)}</td>
-        <td>${(it.introFrame/plan.fps).toFixed(1)}s</td>
-        <td>${(it.ratedFrame/plan.fps).toFixed(1)}s</td>
-        <td>#${it.slotIndex}</td>
-      </tr>`).join('');
-      itemsCard.innerHTML = `<h3>Items</h3><table>
-        <tr><th>img</th><th>name</th><th>tier</th><th>intro</th><th>rated</th><th>slot</th></tr>${rows}</table>
-        <p class="muted">Edit the JSON file directly to fix mistakes, then re-render.</p>`;
-      app.appendChild(itemsCard);
+    // Resolve an image value for preview: absolute URL/data URI as-is, else served from public/.
+    function previewSrc(image) {
+      if (!image) return '';
+      return /^(https?:|data:|blob:|file:)/.test(image) ? image : `../render/public/${image}`;
     }
-
     function tierChip(label) {
       const c = tierColors[String(label).toUpperCase()] || '#888';
       return `<span class="tier" style="background:${c}">${label}</span>`;
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      const L = plan.layout;
+      app.innerHTML = '';
+
+      // ---- Left column: caption style + meta ----
+      const left = document.createElement('div');
+      left.className = 'card';
+      left.innerHTML = `
+        <h3>Caption style</h3>
+        <label class="row"><span>Text color</span><input type="color" id="capColor" value="${L.captionColor || '#FFFFFF'}"></label>
+        <label class="row"><span>Highlight</span><input type="color" id="capActive" value="${L.captionActiveColor || '#FFE14D'}"></label>
+        <label class="row"><span>Font</span>
+          <select id="capFont">
+            ${fontOptions(L.captionFont)}
+          </select>
+        </label>
+        <label class="row"><span>Size (px)</span><input type="number" id="capSize" min="16" max="120" value="${L.captionSize || 44}"></label>
+        <div class="preview" id="capPreview"></div>
+        <h3 style="margin-top:16px">Video</h3>
+        <div class="muted" style="font-size:12px">
+          ${plan.width}×${plan.height} · ${plan.fps}fps · ${(plan.durationInFrames/plan.fps).toFixed(1)}s<br>
+          ${plan.items.length} items · ${plan.captions.length} captions
+        </div>`;
+      app.appendChild(left);
+
+      // ---- Right column: items ----
+      const right = document.createElement('div');
+      right.className = 'card';
+      right.innerHTML = `<h3>Items — swap photos</h3>
+        <table><thead><tr><th>image</th><th>name</th><th>tier</th><th>time</th></tr></thead>
+        <tbody id="items"></tbody></table>
+        <p class="muted">Paste an image URL or upload a file to replace a photo. Then click
+        <b>Download editplan.json</b> and drop it back into <code>render/public/${plan.videoId}/</code>.</p>`;
+      app.appendChild(right);
+
+      const tbody = right.querySelector('#items');
+      plan.items.forEach((it, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div class="imgcell">
+              <img class="thumb" id="thumb${i}" src="${previewSrc(it.image)}" onerror="this.style.opacity=.2">
+              <div class="imgctl">
+                <input type="text" id="url${i}" placeholder="image URL…" value="${it.image && /^https?:/.test(it.image) ? it.image : ''}">
+                <input type="file" id="up${i}" accept="image/*">
+              </div>
+            </div>
+          </td>
+          <td>${it.name}</td>
+          <td><select id="tier${i}">${tierOptions(it.tier)}</select></td>
+          <td class="muted">${(it.introFrame/plan.fps).toFixed(1)}→${(it.ratedFrame/plan.fps).toFixed(1)}s</td>`;
+        tbody.appendChild(tr);
+
+        tr.querySelector(`#url${i}`).addEventListener('change', (e) => {
+          const v = e.target.value.trim();
+          if (v) { it.image = v; document.getElementById(`thumb${i}`).src = previewSrc(v); document.getElementById(`thumb${i}`).style.opacity = 1; }
+        });
+        tr.querySelector(`#up${i}`).addEventListener('change', (e) => {
+          const f = e.target.files[0];
+          if (!f) return;
+          const reader = new FileReader();
+          reader.onload = () => { it.image = reader.result; document.getElementById(`thumb${i}`).src = reader.result; document.getElementById(`thumb${i}`).style.opacity = 1; };
+          reader.readAsDataURL(f);
+        });
+        tr.querySelector(`#tier${i}`).addEventListener('change', (e) => { it.tier = e.target.value; });
+      });
+
+      // caption controls -> plan.layout + live preview
+      const bind = (id, key, cast = (v) => v) => {
+        document.getElementById(id).addEventListener('input', (e) => { plan.layout[key] = cast(e.target.value); paintPreview(); });
+      };
+      bind('capColor', 'captionColor');
+      bind('capActive', 'captionActiveColor');
+      bind('capFont', 'captionFont');
+      bind('capSize', 'captionSize', (v) => Number(v));
+      paintPreview();
+    }
+
+    function paintPreview() {
+      const L = plan.layout;
+      const el = document.getElementById('capPreview');
+      if (!el) return;
+      el.innerHTML = `<span style="font-family:${L.captionFont};font-weight:900;font-size:${L.captionSize}px;
+        color:${L.captionActiveColor};-webkit-text-stroke:6px #000;paint-order:stroke fill;text-transform:uppercase">THIS</span>
+        <span style="font-family:${L.captionFont};font-weight:900;font-size:${L.captionSize}px;
+        color:${L.captionColor};-webkit-text-stroke:6px #000;paint-order:stroke fill;text-transform:uppercase">IS EASILY</span>`;
+    }
+
+    function tierOptions(sel) {
+      return (plan.tiers || []).map(t => `<option value="${t.label}" ${t.label === sel ? 'selected' : ''}>${t.label}</option>`).join('');
+    }
+    function fontOptions(sel) {
+      const fonts = [
+        "Arial Black, Arial, sans-serif", "Impact, sans-serif", "Georgia, serif",
+        "'Comic Sans MS', cursive", "'Courier New', monospace", "Verdana, sans-serif",
+        "'Trebuchet MS', sans-serif", "Tahoma, sans-serif"
+      ];
+      if (sel && !fonts.includes(sel)) fonts.unshift(sel);
+      return fonts.map(f => `<option value="${f}" ${f === sel ? 'selected' : ''}>${f.split(',')[0].replace(/'/g,'')}</option>`).join('');
     }
   </script>
 </body>

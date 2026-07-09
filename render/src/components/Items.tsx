@@ -3,6 +3,11 @@ import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, us
 import type { Editplan, Item } from "../schema";
 import { cellRect, stagingRect, type Rect } from "./layout";
 
+// Allow item.image to be a staged relative path OR an absolute URL / data URI
+// (so photos can be swapped from the review editor without staging a file).
+const resolveSrc = (image: string): string =>
+  /^(https?:|data:|file:|blob:)/.test(image) ? image : staticFile(image);
+
 const NamePlaceholder: React.FC<{ name: string }> = ({ name }) => (
   <div
     style={{
@@ -80,7 +85,7 @@ const ItemCard: React.FC<{ plan: Editplan; item: Item }> = ({ plan, item }) => {
       >
         {item.image && !imgError ? (
           <Img
-            src={staticFile(item.image)}
+            src={resolveSrc(item.image)}
             onError={() => setImgError(true)}
             style={{ width: "100%", height: "100%", objectFit: "contain" }}
           />

@@ -11,7 +11,17 @@ const placeholder: Editplan = {
   height: 1280,
   durationInFrames: 90,
   backgroundSrc: "",
-  layout: { videoScale: 1.0, videoTranslateY: -60, boardTopRatio: 0.5, captionBaselineRatio: 0.44, showCaptions: true },
+  layout: {
+    videoScale: 1.0,
+    videoTranslateY: -115,
+    boardTopRatio: 0.57,
+    captionBaselineRatio: 0.44,
+    showCaptions: true,
+    captionColor: "#FFFFFF",
+    captionActiveColor: "#FFE14D",
+    captionFont: "Arial Black, Arial, sans-serif",
+    captionSize: 44,
+  },
   tiers: [
     { label: "S", color: "#FF7F7F" },
     { label: "A", color: "#FFBF7F" },
