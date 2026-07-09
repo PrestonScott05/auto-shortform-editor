@@ -1,0 +1,12 @@
+.env
+.env.local
+.venv/
+work/
+out/
+render/node_modules/
+render/public/
+render/out/
+__pycache__/
+*.pyc
+Videos/
+Vids-*/
