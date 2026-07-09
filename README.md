@@ -1,72 +1,105 @@
-# EditingAutomation — auto tier-list video editor
+# EditingAutomation
 
-Batch pipeline that turns raw talking-head tier-list clips into edited verticals with an
-S-tier board, moved-up framing, karaoke captions, and internet images that animate into
-their tier cell when rated. See [PLAN.md](PLAN.md) for the design.
+Automated editing pipeline that turns raw talking-head tier-list videos into finished
+vertical shorts. It transcribes each clip on the GPU, uses an LLM to detect what is being
+rated and into which tier, pulls an image for each item, and renders a captioned video with
+an animated tier board using Remotion.
 
-## One-time setup
+Built for vertical short-form video (720x1280, 30fps). Tiers, colors, and layout are
+configurable.
 
-### 1. Python 3.12 ML env (transcription + LLM parsing)
-faster-whisper runs on CTranslate2 (CUDA) — no PyTorch needed.
+## What it does
+
+- Transcribes audio on the GPU with faster-whisper (word-level timestamps).
+- Classifies each video by type (tier list vs other) from the transcript.
+- Extracts rating events (item name, tier, timing) with an LLM.
+- Fetches one image per item from SerpAPI (Google Images) or Openverse (free, no key).
+- Builds a reviewable edit plan (JSON) per video.
+- Renders the final video: moved-up webcam framing, karaoke captions, a tier board with
+  standard colors, and item images that animate into their tier cell when rated.
+
+It is semi-automated on purpose. Every stage writes JSON you can inspect and fix before
+rendering, so mistakes from transcription or image search do not ship.
+
+## Pipeline
+
+```
+raw video -> s1 transcribe -> s2 classify -> s3 extract tiers -> s4 fetch images
+          -> s5 build edit plan -> review -> render
+```
+
+Each stage is resumable and writes to `work/<id>/`. Re-run a single stage with `--only` and
+`--force`.
+
+## Requirements
+
+- NVIDIA GPU with CUDA for transcription and NVENC encoding (developed on an RTX 4070).
+- Python 3.12 (newer versions may lack prebuilt ML wheels).
+- Node.js 18+ for Remotion.
+- FFmpeg with NVENC support.
+- API keys: Anthropic (parsing). SerpAPI is optional if you use the free Openverse source.
+
+## Setup
+
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-```
-GPU transcription needs the NVIDIA cuBLAS + cuDNN libraries on PATH. If you hit a
-`cublas`/`cudnn` load error, `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12` (already
-in requirements) supplies them.
 
-### 2. Keys
-```powershell
-copy .env.example .env
-# edit .env: ANTHROPIC_API_KEY (stages 2-3), SERPAPI_KEY (stage 4)
-```
-No SerpAPI key? Set `images.engine: openverse` in `config.yaml` (free, CC-licensed).
-
-### 3. Remotion renderer
-```powershell
 cd render
 npm install
 cd ..
+
+copy .env.example .env.local   # then add ANTHROPIC_API_KEY and SERPAPI_KEY
 ```
 
-## Run
+faster-whisper runs on CTranslate2, so no PyTorch install is needed.
+
+## Usage
+
+Put source videos in `Videos/`, then:
 
 ```powershell
-# transcribe -> classify -> extract tiers -> fetch images -> build editplans (all videos)
+# run all stages over every video
 .\.venv\Scripts\python.exe pipeline\orchestrate.py
 
-# or one video, or a subset of stages:
-.\.venv\Scripts\python.exe pipeline\orchestrate.py 00b94dc772574d0492d2b96f9d4b0125
+# one video, or a subset of stages
+.\.venv\Scripts\python.exe pipeline\orchestrate.py <videoId>
 .\.venv\Scripts\python.exe pipeline\orchestrate.py --only=s1,s2
-```
 
-Artifacts land in `work/<id>/` (transcript, classification, events, editplan) and assets in
-`render/public/<id>/`.
-
-## Review (semi-auto)
-
-Open `review/review.html` in a browser and load a `render/public/<id>/editplan.json` to
-sanity-check items, tiers, timings, and images. Fix the JSON (or re-run a stage with
-`--force`) before rendering. You can also preview live:
-```powershell
-cd render && npm run studio     # opens Remotion Studio; pick the TierList composition
-```
-
-## Render finals
-
-```powershell
+# review, then render
+# open review/review.html and load render/public/<id>/editplan.json
 cd render
-npm run still  -- <id> 300      # quick PNG preview of one frame
-npm run render -- <id>          # full mp4 -> out/<id>.mp4 (GPU encode)
+npm run still  -- <id> 300   # preview a single frame
+npm run render -- <id>       # final mp4 to out/<id>.mp4
 ```
 
-## Layout tuning
-Edit `layout:` in `config.yaml` (video shift/scale, board position, caption height), then
-re-run stage s5 (`--only=s5 --force`) and re-render. Tier set/colors also live there.
+## Configuration
 
-## Other categories
-Non-tier-list videos get a `classification.json` with `category: other` and a label but no
-template yet. Collect the labels after a first pass, then add per-category Remotion
-compositions the same way `TierList` is built.
+All defaults live in `config.yaml`: tier labels and colors, whisper model, LLM model, image
+source, and layout (video shift and scale, board position, caption toggle). Change a value,
+re-run stage s5 with `--force`, and re-render.
+
+## Project layout
+
+```
+pipeline/    Python stages (s1..s5), orchestrator, shared helpers
+render/      Remotion project (TypeScript/React) and render scripts
+review/      Local HTML tool to inspect edit plans
+config.yaml  Tunable defaults
+```
+
+## Extending to other video types
+
+Non tier-list videos are still transcribed and classified, then labeled `other`. To support
+a new type, add a Remotion composition for it the same way `TierList` is built, and route it
+in stage s5.
+
+## Notes
+
+- Video files, API keys, and build output are git-ignored.
+- Keep secrets in `.env.local` (ignored), not `.env.example` (a committed template).
+
+## License
+
+MIT.
