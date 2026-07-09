@@ -118,7 +118,12 @@ def main(argv: list[str]) -> None:
     for vid in ids:
         if not stage_done(vid, "events.json"):
             continue
-        images_one(vid, force=force)
+        try:
+            images_one(vid, force=force)
+        except SystemExit:
+            raise
+        except Exception as e:  # noqa: BLE001 — isolate per-video so the batch continues
+            print(f"[s4] {vid}: FAILED ({type(e).__name__}: {e})")
 
 
 if __name__ == "__main__":

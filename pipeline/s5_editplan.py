@@ -113,7 +113,10 @@ def main(argv: list[str]) -> None:
     for v in videos:
         if not stage_done(video_id_for(v), "events.json"):
             continue
-        editplan_one(v, force=force)
+        try:
+            editplan_one(v, force=force)
+        except Exception as e:  # noqa: BLE001 — isolate per-video so the batch continues
+            print(f"[s5] {video_id_for(v)}: FAILED ({type(e).__name__}: {e})")
 
 
 if __name__ == "__main__":

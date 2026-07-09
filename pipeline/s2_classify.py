@@ -43,7 +43,10 @@ def main(argv: list[str]) -> None:
         if not stage_done(vid, "transcript.json"):
             print(f"[s2] {vid}: no transcript yet, skip")
             continue
-        classify_one(vid, force=force)
+        try:
+            classify_one(vid, force=force)
+        except Exception as e:  # noqa: BLE001 — isolate per-video so the batch continues
+            print(f"[s2] {vid}: FAILED ({type(e).__name__}: {e})")
 
 
 if __name__ == "__main__":
