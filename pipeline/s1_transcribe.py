@@ -5,11 +5,29 @@ ffmpeg extracts 16k mono wav -> faster-whisper (CUDA) -> transcript.json:
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 from common import CFG, list_videos, read_json, stage_done, video_id_for, work_dir, write_json
+
+
+def _add_cuda_dll_dirs() -> None:
+    """On Windows, expose the pip-installed nvidia CUDA DLLs (cudart/cuBLAS/cuDNN) to
+    CTranslate2. PATH is prepended so transitive deps (e.g. cuBLAS -> cudart) also resolve."""
+    if not sys.platform.startswith("win"):
+        return
+    base = Path(sys.prefix) / "Lib" / "site-packages" / "nvidia"
+    bindirs = [str(p) for p in base.glob("*/bin") if p.is_dir()]
+    if not bindirs:
+        return
+    os.environ["PATH"] = os.pathsep.join(bindirs) + os.pathsep + os.environ.get("PATH", "")
+    for bindir in bindirs:
+        try:
+            os.add_dll_directory(bindir)
+        except OSError:
+            pass
 
 
 def extract_audio(video: Path, wav: Path) -> None:
@@ -55,6 +73,7 @@ def transcribe_one(video: Path, force: bool = False) -> dict:
         print(f"[s1] {vid}: transcript exists, skip")
         return read_json(out)
 
+    _add_cuda_dll_dirs()
     from faster_whisper import WhisperModel  # imported lazily so orchestrator help works without torch
 
     wav = wd / "audio.wav"

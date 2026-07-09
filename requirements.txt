@@ -1,6 +1,7 @@
 # Install into a Python 3.12 venv (see README). faster-whisper uses CTranslate2, not torch.
 faster-whisper==1.1.0
 # CUDA runtime libs for CTranslate2 GPU inference:
+nvidia-cuda-runtime-cu12
 nvidia-cublas-cu12
 nvidia-cudnn-cu12
 anthropic>=0.40
