@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +15,33 @@ ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 load_dotenv(ROOT / ".env.local", override=True)
 
+# Source-directory override: env var default, or set per-run via --videos (parse_common_args).
+_VIDEOS_OVERRIDE: str | None = os.environ.get("EDITAUTO_VIDEOS_DIR")
+
+
+def set_videos_dir(path: str) -> None:
+    global _VIDEOS_OVERRIDE
+    _VIDEOS_OVERRIDE = path
+
+
+def parse_common_args(argv: list[str]) -> list[str]:
+    """Strip and apply shared flags (`--videos <path>` / `--videos=<path>`); return the rest."""
+    out: list[str] = []
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--videos" and i + 1 < len(argv):
+            set_videos_dir(argv[i + 1])
+            i += 2
+            continue
+        if a.startswith("--videos="):
+            set_videos_dir(a.split("=", 1)[1])
+            i += 1
+            continue
+        out.append(a)
+        i += 1
+    return out
+
 
 def load_config() -> dict:
     with open(ROOT / "config.yaml", "r", encoding="utf-8") as f:
@@ -24,6 +52,9 @@ CFG = load_config()
 
 
 def videos_dir() -> Path:
+    if _VIDEOS_OVERRIDE:
+        p = Path(_VIDEOS_OVERRIDE)
+        return p if p.is_absolute() else (ROOT / p)
     return ROOT / CFG["paths"]["videos_dir"]
 
 
@@ -51,8 +82,11 @@ def video_id_for(path: Path) -> str:
 
 
 def list_videos() -> list[Path]:
+    d = videos_dir()
+    if not d.is_dir():
+        raise SystemExit(f"Videos directory not found: {d}\nSet paths.videos_dir in config.yaml or pass --videos <path>.")
     exts = {".mov", ".mp4", ".mkv", ".webm"}
-    return sorted(p for p in videos_dir().iterdir() if p.suffix.lower() in exts)
+    return sorted(p for p in d.iterdir() if p.suffix.lower() in exts)
 
 
 @dataclass

@@ -1,9 +1,12 @@
-"""Run stages 1-5 across all videos (resumable). Usage:
+"""Run stages 1-5 over a directory of videos (resumable). Usage:
 
-  py -3.12 pipeline/orchestrate.py                 # all videos, all stages
-  py -3.12 pipeline/orchestrate.py <id> [<id>...]  # specific videos
-  py -3.12 pipeline/orchestrate.py --only s1,s2    # limit stages
-  py -3.12 pipeline/orchestrate.py --force         # redo even if artifacts exist
+  py -3.12 pipeline/orchestrate.py                       # all videos in the configured dir
+  py -3.12 pipeline/orchestrate.py <id> [<id>...]        # specific videos
+  py -3.12 pipeline/orchestrate.py --videos "D:\\clips"   # point at any directory
+  py -3.12 pipeline/orchestrate.py --only s3,s4          # run only certain stages
+  py -3.12 pipeline/orchestrate.py --only=s5 --force     # redo even if artifacts exist
+
+--videos and --only work on the standalone stage scripts too (e.g. s4_images.py).
 
 After it finishes, review work/<id>/editplan.json, then render:
   cd render && npm run render -- <id>
@@ -12,21 +15,29 @@ from __future__ import annotations
 
 import sys
 
-from common import list_videos, video_id_for
+from common import list_videos, parse_common_args, video_id_for
 import s1_transcribe, s2_classify, s3_extract, s4_images, s5_editplan
 
 
 def main(argv: list[str]) -> None:
+    argv = parse_common_args(argv)  # applies --videos, returns the rest
     force = "--force" in argv
     only = None
     rest = []
-    for a in argv:
-        if a.startswith("--only"):
-            only = set(a.split("=", 1)[1].split(",")) if "=" in a else None
-        elif a == "--force":
-            pass
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--force":
+            i += 1
+        elif a == "--only" and i + 1 < len(argv):
+            only = set(argv[i + 1].split(","))
+            i += 2
+        elif a.startswith("--only="):
+            only = set(a.split("=", 1)[1].split(","))
+            i += 1
         else:
             rest.append(a)
+            i += 1
 
     videos = list_videos()
     if rest:

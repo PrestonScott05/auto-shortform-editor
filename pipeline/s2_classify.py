@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import sys
 
-from common import list_videos, read_json, stage_done, video_id_for, work_dir, write_json
+from common import list_videos, parse_common_args, read_json, stage_done, video_id_for, work_dir, write_json
 from llm import ask_json
 
 SYSTEM = (
@@ -36,6 +36,7 @@ def classify_one(video_id: str, force: bool = False) -> dict:
 
 
 def main(argv: list[str]) -> None:
+    argv = parse_common_args(argv)
     force = "--force" in argv
     targets = [a for a in argv if not a.startswith("--")]
     ids = targets or [video_id_for(v) for v in list_videos()]

@@ -68,6 +68,10 @@ Put source videos in `Videos/`, then:
 .\.venv\Scripts\python.exe pipeline\orchestrate.py <videoId>
 .\.venv\Scripts\python.exe pipeline\orchestrate.py --only=s1,s2
 
+# point at any directory (works on the standalone stage scripts too)
+.\.venv\Scripts\python.exe pipeline\orchestrate.py --videos "D:\path\to\clips"
+.\.venv\Scripts\python.exe pipeline\orchestrate.py --videos "D:\path\to\clips" --only=s3,s4 --force
+
 # review, then render
 # open review/review.html and load render/public/<id>/editplan.json
 cd render

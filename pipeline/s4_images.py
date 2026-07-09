@@ -11,7 +11,7 @@ from pathlib import Path
 
 import requests
 
-from common import CFG, list_videos, public_dir, read_json, stage_done, video_id_for, work_dir, write_json
+from common import CFG, list_videos, parse_common_args, public_dir, read_json, stage_done, video_id_for, work_dir, write_json
 
 UA = {"User-Agent": "Mozilla/5.0 (auto-editing-pipeline)"}
 
@@ -139,6 +139,7 @@ def images_one(video_id: str, force: bool = False) -> None:
 
 
 def main(argv: list[str]) -> None:
+    argv = parse_common_args(argv)
     force = "--force" in argv
     targets = [a for a in argv if not a.startswith("--")]
     ids = targets or [video_id_for(v) for v in list_videos()]

@@ -11,8 +11,8 @@ import sys
 from pathlib import Path
 
 from common import (
-    CFG, ffprobe, list_videos, public_dir, read_json, stage_done, video_id_for,
-    videos_dir, work_dir, write_json,
+    CFG, ffprobe, list_videos, parse_common_args, public_dir, read_json, stage_done,
+    video_id_for, videos_dir, work_dir, write_json,
 )
 
 
@@ -109,6 +109,7 @@ def editplan_one(video: Path, force: bool = False) -> dict | None:
 
 
 def main(argv: list[str]) -> None:
+    argv = parse_common_args(argv)
     force = "--force" in argv
     targets = [a for a in argv if not a.startswith("--")]
     videos = list_videos()
