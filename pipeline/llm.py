@@ -16,7 +16,8 @@ def _client():
             "Needed for stages s2 (classify) and s3 (extract)."
         )
     import anthropic
-    return anthropic.Anthropic(api_key=key)
+    # Retry transient network/5xx errors with backoff instead of failing the batch.
+    return anthropic.Anthropic(api_key=key, max_retries=6, timeout=120.0)
 
 
 def ask_json(system: str, user: str) -> dict | list:
