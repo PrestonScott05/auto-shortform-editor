@@ -3,7 +3,7 @@
   py -3.12 pipeline/orchestrate.py                       # all videos in the configured dir
   py -3.12 pipeline/orchestrate.py <id> [<id>...]        # specific videos
   py -3.12 pipeline/orchestrate.py --videos "D:\\clips"   # point at any directory
-  py -3.12 pipeline/orchestrate.py --only s3,s4          # run only certain stages
+  py -3.12 pipeline/orchestrate.py --only s3,s3b,s4      # run only certain stages
   py -3.12 pipeline/orchestrate.py --only=s5 --force     # redo even if artifacts exist
 
 --videos and --only work on the standalone stage scripts too (e.g. s4_images.py).
@@ -16,7 +16,7 @@ from __future__ import annotations
 import sys
 
 from common import list_videos, parse_common_args, video_id_for
-import s1_transcribe, s2_classify, s3_extract, s4_images, s5_editplan
+import s1_transcribe, s2_classify, s3_extract, s3_standard, s4_images, s5_editplan
 
 
 def main(argv: list[str]) -> None:
@@ -54,7 +54,8 @@ def main(argv: list[str]) -> None:
     fargs = (["--force"] if force else [])
     run("s1", lambda: s1_transcribe.main([v.name for v in videos] + fargs))
     run("s2", lambda: s2_classify.main(ids + fargs))
-    run("s3", lambda: s3_extract.main(ids + fargs))
+    run("s3", lambda: s3_extract.main(ids + fargs))     # tierlist videos
+    run("s3b", lambda: s3_standard.main(ids + fargs))   # everything else: pause-cuts + title
     run("s4", lambda: s4_images.main(ids + fargs))
     run("s5", lambda: s5_editplan.main(ids + fargs))
 
