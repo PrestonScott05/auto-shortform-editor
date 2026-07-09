@@ -6,11 +6,10 @@ ffmpeg extracts 16k mono wav -> faster-whisper (CUDA) -> transcript.json:
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
-from common import CFG, list_videos, parse_common_args, read_json, stage_done, video_id_for, work_dir, write_json
+from common import CFG, extract_audio, list_videos, parse_common_args, read_json, stage_done, video_id_for, work_dir, write_json
 
 
 def _add_cuda_dll_dirs() -> None:
@@ -28,14 +27,6 @@ def _add_cuda_dll_dirs() -> None:
             os.add_dll_directory(bindir)
         except OSError:
             pass
-
-
-def extract_audio(video: Path, wav: Path) -> None:
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", str(video), "-vn", "-ac", "1", "-ar", "16000",
-         "-c:a", "pcm_s16le", str(wav)],
-        check=True, capture_output=True,
-    )
 
 
 def chunk_captions(words: list[dict]) -> list[dict]:

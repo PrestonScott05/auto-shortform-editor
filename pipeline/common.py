@@ -141,6 +141,14 @@ def ffprobe(path: Path) -> Probe:
     return Probe(int(w), int(h), fps, dur)
 
 
+def extract_audio(video: Path, wav: Path) -> None:
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", str(video), "-vn", "-ac", "1", "-ar", "16000",
+         "-c:a", "pcm_s16le", str(wav)],
+        check=True, capture_output=True,
+    )
+
+
 def read_json(p: Path) -> dict:
     with open(p, "r", encoding="utf-8") as f:
         return json.load(f)
