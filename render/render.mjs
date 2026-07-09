@@ -28,7 +28,7 @@ if (!existsSync(props)) {
 
 const out = resolve("..", "out", `${id}.mp4`);
 const args = [
-  "remotion", "render", "TierList", out,
+  "remotion", "render", "Video", out,
   `--props=${props}`,
   "--hardware-acceleration=if-possible",
   "--concurrency=50%",

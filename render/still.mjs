@@ -25,7 +25,7 @@ if (!existsSync(props)) {
 }
 const out = resolve("..", "out", `${id}_f${frame}.png`);
 const args = [
-  "remotion", "still", "TierList", out,
+  "remotion", "still", "Video", out,
   `--props=${props}`,
   `--frame=${frame}`,
 ];

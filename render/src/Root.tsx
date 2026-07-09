@@ -1,11 +1,12 @@
 import { Composition, staticFile } from "remotion";
-import { TierListVideo } from "./TierListVideo";
+import { VideoRoot } from "./VideoRoot";
 import { editplanSchema, type Editplan } from "./schema";
 import { VIDEO_IDS } from "./manifest";
 
 // Minimal placeholder so compositions are valid before calculateMetadata loads real props.
 const placeholder: Editplan = {
   videoId: "placeholder",
+  template: "tierlist",
   fps: 30,
   width: 720,
   height: 1280,
@@ -31,6 +32,8 @@ const placeholder: Editplan = {
   ],
   captions: [],
   items: [],
+  cutSegments: [],
+  titleCard: null,
 };
 
 async function loadPlan(id: string): Promise<Editplan> {
@@ -44,10 +47,11 @@ const compId = (id: string) => id.replace(/[^a-zA-Z0-9-]/g, "-");
 export const RemotionRoot: React.FC = () => {
   return (
     <>
-      {/* Generic composition used by the CLI render/still scripts via --props. */}
+      {/* Generic composition used by the CLI render/still scripts via --props. Dispatches
+          to the right template (tierlist/standard) based on the props it's given. */}
       <Composition
-        id="TierList"
-        component={TierListVideo}
+        id="Video"
+        component={VideoRoot}
         schema={editplanSchema}
         defaultProps={placeholder}
         fps={30}
@@ -67,7 +71,7 @@ export const RemotionRoot: React.FC = () => {
         <Composition
           key={id}
           id={compId(id)}
-          component={TierListVideo}
+          component={VideoRoot}
           schema={editplanSchema}
           defaultProps={placeholder}
           fps={30}

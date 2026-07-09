@@ -37,17 +37,32 @@ export const layoutSchema = z.object({
   captionSize: z.number().default(44),
 });
 
+export const cutSegmentSchema = z.object({
+  sourceStartFrame: z.number(),
+  sourceEndFrame: z.number(),
+  timelineStartFrame: z.number(),
+});
+
+export const titleCardSchema = z.object({
+  text: z.string(),
+  startFrame: z.number(),
+  endFrame: z.number(),
+});
+
 export const editplanSchema = z.object({
   videoId: z.string(),
+  template: z.enum(["tierlist", "standard"]).default("tierlist"),
   fps: z.number(),
   width: z.number(),
   height: z.number(),
   durationInFrames: z.number(),
   backgroundSrc: z.string(),
   layout: layoutSchema,
-  tiers: z.array(tierSchema),
+  tiers: z.array(tierSchema).default([]),
   captions: z.array(captionSchema),
-  items: z.array(itemSchema),
+  items: z.array(itemSchema).default([]),
+  cutSegments: z.array(cutSegmentSchema).default([]),
+  titleCard: titleCardSchema.nullable().default(null),
 });
 
 export type Editplan = z.infer<typeof editplanSchema>;
