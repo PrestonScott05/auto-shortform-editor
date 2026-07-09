@@ -24,7 +24,7 @@ images:
   engine: duckduckgo          # duckduckgo (free, no key, web/meme images) | serpapi | openverse
   results_per_item: 1
   timeout_sec: 20
-  query_suffix: "meme funny"  # appended to every image query to bias toward humor; "" to disable
+  query_suffix: ""            # appended to every image query; empty = use the LLM query verbatim
 
 # Standard tiermaker colors. Order = top-to-bottom rows.
 tiers:
