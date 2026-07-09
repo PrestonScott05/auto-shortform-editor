@@ -26,6 +26,13 @@ images:
   timeout_sec: 20
   query_suffix: ""            # appended to every image query; empty = use the LLM query verbatim
 
+# Non-tierlist ("standard") videos: cut out pauses, add an opening title card.
+cuts:
+  silence_db: -35             # ffmpeg silencedetect noise floor; more negative = stricter (fewer pauses found)
+  min_silence_sec: 0.6        # pauses shorter than this are left in
+  padding_sec: 0.15           # kept segments are padded this much so speech isn't clipped at cut points
+  add_title: true             # ask the LLM for an opening title/hook card
+
 # Standard tiermaker colors. Order = top-to-bottom rows.
 tiers:
   - { label: S, color: "#FF7F7F" }
@@ -48,3 +55,15 @@ layout:
   caption_active_color: "#FFE14D"   # highlighted (spoken) word color
   caption_font: "Arial Black, Arial, sans-serif"
   caption_size: 44                  # px
+
+# Layout for non-tierlist ("standard") videos: full-bleed, no tier board.
+layout_standard:
+  board_top_ratio: 1.0        # unused (no board), kept for schema uniformity
+  video_scale: 1.0
+  video_translate_y: 0        # no board to clear, so no need to shift the video up
+  caption_baseline_ratio: 0.82 # captions near the bottom, clear of the chin
+  show_captions: true
+  caption_color: "#FFFFFF"
+  caption_active_color: "#FFE14D"
+  caption_font: "Arial Black, Arial, sans-serif"
+  caption_size: 44
