@@ -32,7 +32,7 @@ export function cellRect(plan: Editplan, tier: string, slotIndex: number): Rect 
   return { x, y, size: g.cellSize };
 }
 
-/** Center staging rectangle where a thing is shown before it is rated. */
+/** Center staging rectangle where a thing is shown (in full) before it is rated. */
 export function stagingRect(plan: Editplan): Rect {
-  return { x: plan.width / 2, y: plan.height * 0.26, size: 240 };
+  return { x: plan.width / 2, y: plan.height * 0.28, size: 300 };
 }

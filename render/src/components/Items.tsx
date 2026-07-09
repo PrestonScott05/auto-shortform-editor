@@ -36,13 +36,11 @@ const ItemCard: React.FC<{ plan: Editplan; item: Item }> = ({ plan, item }) => {
 
   const moveEnd = item.ratedFrame + MOVE_FRAMES;
   let rect: Rect;
-  let showLabel: boolean;
 
   if (frame < item.ratedFrame) {
-    // Staging: pop in at center.
+    // Staging: pop in at center, showing the whole image.
     const s = spring({ frame: frame - item.introFrame, fps, config: { damping: 14 } });
     rect = { x: stage.x, y: stage.y, size: stage.size * s };
-    showLabel = true;
   } else if (frame < moveEnd) {
     // Animate from staging center to the tier cell.
     const p = spring({ frame: frame - item.ratedFrame, fps, durationInFrames: MOVE_FRAMES, config: { damping: 16 } });
@@ -51,10 +49,8 @@ const ItemCard: React.FC<{ plan: Editplan; item: Item }> = ({ plan, item }) => {
       y: interpolate(p, [0, 1], [stage.y, dest.y]),
       size: interpolate(p, [0, 1], [stage.size, dest.size]),
     };
-    showLabel = false;
   } else {
     rect = dest;
-    showLabel = false;
   }
 
   const half = rect.size / 2;
@@ -86,30 +82,12 @@ const ItemCard: React.FC<{ plan: Editplan; item: Item }> = ({ plan, item }) => {
           <Img
             src={staticFile(item.image)}
             onError={() => setImgError(true)}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
           />
         ) : (
           <NamePlaceholder name={item.name} />
         )}
       </div>
-      {showLabel && (
-        <div
-          style={{
-            marginTop: 10,
-            padding: "6px 14px",
-            borderRadius: 8,
-            backgroundColor: "rgba(0,0,0,0.75)",
-            color: "#fff",
-            fontFamily: "Arial Black, Arial, sans-serif",
-            fontWeight: 800,
-            fontSize: 26,
-            textAlign: "center",
-            maxWidth: plan.width * 0.8,
-          }}
-        >
-          {item.name}
-        </div>
-      )}
     </div>
   );
 };
