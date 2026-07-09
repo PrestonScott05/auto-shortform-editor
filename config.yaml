@@ -1,0 +1,43 @@
+# Pipeline configuration. Edit defaults here; per-video overrides live in work/<id>/editplan.json.
+
+paths:
+  videos_dir: Videos          # source .mov files
+  work_dir: work              # per-video intermediate artifacts
+  out_dir: out                # final rendered mp4s
+  render_public: render/public  # Remotion serves assets from here
+
+transcribe:
+  model: large-v3             # faster-whisper model; medium is a lighter fallback
+  device: cuda
+  compute_type: float16       # float16 fits large-v3 in 8GB; use int8_float16 if OOM
+  language: en
+  vad_filter: true
+  # caption chunking
+  max_caption_words: 4        # words per on-screen caption line
+  max_caption_gap: 0.6        # seconds of silence that force a new caption
+
+llm:
+  model: claude-sonnet-5      # cheap + accurate for transcript parsing
+  max_tokens: 8000
+
+images:
+  engine: serpapi             # serpapi | openverse (openverse = free, no key)
+  results_per_item: 1
+  timeout_sec: 20
+
+# Standard tiermaker colors. Order = top-to-bottom rows.
+tiers:
+  - { label: S, color: "#FF7F7F" }
+  - { label: A, color: "#FFBF7F" }
+  - { label: B, color: "#FFDF7F" }
+  - { label: C, color: "#FFFF7F" }
+  - { label: D, color: "#BFFF7F" }
+
+# Layout for 720x1280. Tweak after first sample render (re-run: --only=s5 --force).
+layout:
+  board_top_ratio: 0.5        # tier board starts at 50% height (bottom half)
+  video_scale: 1.0            # zoom the talking head (raise for wide shots)
+  video_translate_y: -60      # px; negative = move video up so body stays above the board.
+                              # Close-up selfies need ~0; wider shots need more negative.
+  caption_baseline_ratio: 0.44 # captions sit just above the board
+  show_captions: true         # false = rely on the source's own burned-in captions
